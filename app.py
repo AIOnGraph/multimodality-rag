@@ -8,7 +8,7 @@ import tempfile
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-output_path = "uploads/"
+output_path = "figures/"
 
 try:
     if not os.path.exists(output_path):
