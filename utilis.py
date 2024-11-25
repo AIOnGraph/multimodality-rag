@@ -22,7 +22,7 @@ def get_raw_pdf_elements(pdf_path, output_path):
     try:
         raw_pdf_pages = partition_pdf(
             filename=pdf_path,
-            extract_images_in_pdf=False,
+            extract_images_in_pdf=True,
             infer_table_structure=True,
             chunking_strategy="by_title",
             max_characters=4000,
