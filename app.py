@@ -13,6 +13,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 output_path = "figures/"
+UPLOAD_DIR = "uploads/"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 try:
     if not os.path.exists(output_path):
@@ -43,13 +45,14 @@ if OPENAI_API_KEY:
     uploaded_pdf = st.file_uploader("Upload a PDF", type="pdf")
 
     if uploaded_pdf:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-            temp_file.write(uploaded_pdf.read())
-            temp_pdf_path = temp_file.name
+        pdf_path = os.path.join(UPLOAD_DIR, uploaded_pdf.name)  # Create a path for the uploaded file
+        with open(pdf_path, "wb") as f:
+            f.write(uploaded_pdf.read())  # Save the uploaded PDF to the specified path
+        logger.info(f"PDF saved to: {pdf_path}")
         logger.info(f"PDF uploaded: {uploaded_pdf.name}")
         logger.info(f"PDF saved to: {temp_pdf_path}")
         try:
-            vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, temp_pdf_path, output_path)
+            vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, output_path)
             logger.info("Vectorstore created successfully.")
 
             if vectorstore:
