@@ -1,0 +1,10 @@
+.env
+venv/
+faiss_index/
+faiss_index_gpt_vision/
+faiss_index_gpt_vision1/
+faiss_index_gpt_vision12/
+image.py
+main.py
+test.py
+__pycache__
