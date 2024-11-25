@@ -15,12 +15,6 @@ UPLOAD_DIR = "uploads/"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(output_path,exist_ok=True)
 
-# try:
-#     if not os.path.exists(output_path):
-#         os.makedirs(output_path)
-#         logger.info(f"Created directory: {output_path}")
-# except OSError as error:
-#     logger.error(f"Error creating directory {output_path}: {error}")
 
 st.set_page_config(initial_sidebar_state='collapsed', layout='wide')
 st.title("**Multi-Modality RAG**")
@@ -67,6 +61,13 @@ if OPENAI_API_KEY:
             if 'messages' not in st.session_state:
                 st.session_state['messages'] = []
                 logger.debug("Initialized session state for messages.")
+            
+            if "images" not in st.session_state:
+                st.session_state["images"] = []
+
+            if st.session_state["images"]:
+                for stored_image in st.session_state["images"]:
+                    st.image(stored_image)
 
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
@@ -89,6 +90,7 @@ if OPENAI_API_KEY:
                             for image in relevant_image:
                                 image_data = base64.b64decode(image)
                                 image = Image.open(BytesIO(image_data))
+                                st.session_state["images"].append(image)
                                 st.image(image)
                                 break
                         st.session_state.messages.append({"role": "assistant", "content": result})
