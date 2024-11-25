@@ -9,3 +9,4 @@ sentence-transformers
 unstructured
 pdfminer
 pdfminer.six
+pi_heif
