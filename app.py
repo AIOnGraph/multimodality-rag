@@ -58,44 +58,48 @@ if OPENAI_API_KEY:
         vectorstore = st.session_state["vectorstore"]
 
         if vectorstore:
-            if 'messages' not in st.session_state:
-                st.session_state['messages'] = []
+            if "messages" not in st.session_state:
+                st.session_state["messages"] = []
                 logger.debug("Initialized session state for messages.")
-            
-            if "images" not in st.session_state:
-                st.session_state["images"] = []
-
-            if st.session_state["images"]:
-                for stored_image in st.session_state["images"]:
-                    st.image(stored_image)
-
+        
+            # Replay past messages with their images
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
-
+                    if "images" in message:
+                        for img in message["images"]:
+                            st.image(img)
+        
             if query := st.chat_input("Ask me anything"):
                 logger.info(f"User query: {query}")
                 st.session_state.messages.append({"role": "user", "content": query})
                 with st.chat_message("user"):
                     st.markdown(query)
-
+        
                 with st.chat_message("assistant"):
-                    message_placeholder = st.empty()
+                    message_placeholder = st.empty()  # Placeholder for a potential loading spinner
                     try:
                         result, relevant_image = get_response_from_llm(vectorstore, query, OPENAI_API_KEY)
                         logger.info("Response generated successfully.")
-                        st.write(result)
-
+                        st.markdown(result)
+        
+                        images_for_message = []  # Store images for this specific assistant message
                         if relevant_image:
                             for image in relevant_image:
                                 image_data = base64.b64decode(image)
-                                image = Image.open(BytesIO(image_data))
-                                st.session_state["images"].append(image)
-                                st.image(image)
-                                break
-                        st.session_state.messages.append({"role": "assistant", "content": result})
+                                pil_image = Image.open(BytesIO(image_data))
+                                st.image(pil_image)  # Display the image in the current assistant message
+                                images_for_message.append(pil_image)  # Save image for session persistence
+        
+                        # Add the assistant message with its text and images to session state
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": result,
+                            "images": images_for_message
+                        })
                     except Exception as e:
                         logger.error(f"Error generating response: {e}")
                         st.error("There was an error generating the response. Please try again.")
+
 else:
     logger.warning("No OpenAI API key provided.")
