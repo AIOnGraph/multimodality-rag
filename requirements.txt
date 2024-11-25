@@ -7,3 +7,4 @@ langchain-core
 faiss-cpu
 sentence-transformers
 unstructured
+pdfminer
