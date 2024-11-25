@@ -50,7 +50,7 @@ if OPENAI_API_KEY:
             f.write(uploaded_pdf.read())  # Save the uploaded PDF to the specified path
         logger.info(f"PDF saved to: {pdf_path}")
         logger.info(f"PDF uploaded: {uploaded_pdf.name}")
-        logger.info(f"PDF saved to: {temp_pdf_path}")
+        #logger.info(f"PDF saved to: {temp_pdf_path}")
         try:
             vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, output_path)
             logger.info("Vectorstore created successfully.")
