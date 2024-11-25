@@ -72,6 +72,9 @@ if OPENAI_API_KEY:
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
+                    if "images" in message:
+                        for img in message["images"]:
+                            st.image(img)
 
             if query := st.chat_input("Ask me anything"):
                 logger.info(f"User query: {query}")
