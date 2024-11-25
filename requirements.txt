@@ -11,3 +11,4 @@ pdfminer==20191125
 pdfminer.six==20231228
 pi_heif==0.20.0
 unstructured_inference
+unstructured_pytesseract
