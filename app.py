@@ -3,6 +3,10 @@ from utilis import create_document_and_vectorstore, get_response_from_llm
 import os
 import logging
 import tempfile
+import base64
+from io import BytesIO
+from PIL import Image
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -74,7 +78,12 @@ if OPENAI_API_KEY:
                             logger.info("Response generated successfully.")
                             st.write(result)
                             if relevant_image:
-                                st.image(relevant_image)
+                                for image in relevant_image:
+                                    image_data = base64.b64decode(image)
+                                    image = Image.open(BytesIO(image_data))
+
+                                    st.image(image)
+                                    break
                             st.session_state.messages.append({"role": "assistant", "content": result})
                         except Exception as e:
                             logger.error(f"Error generating response: {e}")

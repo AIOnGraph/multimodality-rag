@@ -107,7 +107,7 @@ def summarize_image(encoded_image, openai_api_key):
         raise
 
 def get_image_summaries(openai_api_key, output_path):
-    logger.info("Gathering image summaries.",11111111111111)
+    logger.info("Gathering image summaries.")
     image_elements = []
     image_summaries = []
     print(os.listdir(output_path),55555555555555555555555555555)
@@ -175,6 +175,7 @@ Answer the question based only on the following context, which can include text,
 Question: {question}
 You will only reponse those question which answers present in context. if not in context then say "Sorry, I don't have much information about it."
 Don't answer if you are not sure and decline to answer and say "Sorry, I don't have much information about it."
+if you don't have image related to the user question then provide an empty list for image.
 Just return a helpful answer with as much detail as possible.
 Answer:
 """
