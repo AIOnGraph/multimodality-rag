@@ -6,6 +6,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 import shutil
+import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -92,13 +93,20 @@ if OPENAI_API_KEY:
                 st.session_state.messages.append({"role": "user", "content": query})
                 with st.chat_message("user"):
                     st.markdown(query)
-        
+
+                with st.spinner(text="Thinking..."):
+                    result, relevant_image = get_response_from_llm(vectorstore, query, OPENAI_API_KEY,st.session_state["history"])
                 with st.chat_message("assistant"):
                     message_placeholder = st.empty()  
                     try:
-                        result, relevant_image = get_response_from_llm(vectorstore, query, OPENAI_API_KEY,st.session_state["history"])
                         logger.info("Response generated successfully.")
-                        st.markdown(result)
+                        message_placeholder = st.empty()
+                        full_response = ""
+                        for chunk in result.split():
+                            full_response += chunk + " "
+                            time.sleep(0.05)
+                            message_placeholder.markdown(full_response + "▌")
+                        message_placeholder.markdown(full_response)
         
                         images_for_message = []  
                         if relevant_image:
