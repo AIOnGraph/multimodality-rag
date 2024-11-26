@@ -43,6 +43,9 @@ if OPENAI_API_KEY:
             with open(pdf_path, "wb") as f:
                 f.write(uploaded_pdf.read())
             logger.info(f"PDF saved to: {pdf_path}")
+            with st.sidebar:
+                st.markdown("Uploaded pdf")
+                st.write(f"[{uploaded_pdf.name}]({pdf_path})")
             
             try:
                 vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, output_path)
