@@ -17,8 +17,9 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def get_raw_pdf_elements(pdf_path, output_path):
+def get_raw_pdf_elements(pdf_path, output_path,my_bar):
     logger.info(f"Extracting elements from PDF: {pdf_path}")
+    my_bar.progress(20,text="Extracting elements from PDF")
     try:
         raw_pdf_pages = partition_pdf(
             filename=pdf_path,
@@ -36,8 +37,9 @@ def get_raw_pdf_elements(pdf_path, output_path):
         logger.error(f"Error while extracting PDF elements: {e}")
         raise
 
-def summarize_text(openai_api_key, raw_pdf_elements):
+def summarize_text(openai_api_key, raw_pdf_elements,my_bar):
     logger.info("Starting text and table summarization.")
+    my_bar.progress(40, text="Starting text and table summarization")
     text_elements = []
     table_elements = []
 
@@ -82,8 +84,9 @@ def encode_image(image_path):
         logger.error(f"Error encoding image: {e}")
         raise
 
-def summarize_image(encoded_image, openai_api_key):
+def summarize_image(encoded_image, openai_api_key, my_bar):
     logger.debug("Starting image summarization.")
+    my_bar.progress(60, text="Starting image summarization")
     prompt = [
         SystemMessage(content="You are a bot that is good at analyzing images."),
         HumanMessage(
@@ -106,31 +109,30 @@ def summarize_image(encoded_image, openai_api_key):
         logger.error(f"Error during image summarization: {e}")
         raise
 
-def get_image_summaries(openai_api_key, output_path):
+def get_image_summaries(openai_api_key, output_path, my_bar):
     logger.info("Gathering image summaries.")
     image_elements = []
     image_summaries = []
-    print(os.listdir(output_path),55555555555555555555555555555)
     for i in os.listdir(output_path):
-        print(i,111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111)
         if i.endswith((".png", ".jpg", ".jpeg")):
             logger.debug(f"Processing image: {i}")
             image_path = os.path.join(output_path, i)
             encoded_image = encode_image(image_path)
             image_elements.append(encoded_image)
-            summary = summarize_image(encoded_image, openai_api_key)
+            summary = summarize_image(encoded_image, openai_api_key,my_bar)
             image_summaries.append(summary)
     logger.info("Image summaries collected successfully.")
     return image_elements, image_summaries
 
-def create_document_and_vectorstore(openai_api_key, pdf_path, output_path):
+def create_document_and_vectorstore(openai_api_key, pdf_path, output_path,my_bar):
     logger.info(f"Creating document and vectorstore for PDF: {pdf_path}")
+    my_bar.progress(80, text="Creating document and vectorstore")
     try:
-        raw_pdf_elements = get_raw_pdf_elements(pdf_path, output_path)
+        raw_pdf_elements = get_raw_pdf_elements(pdf_path, output_path,my_bar)
         text_elements, text_summaries, table_elements, table_summaries = summarize_text(
-            openai_api_key, raw_pdf_elements
+            openai_api_key, raw_pdf_elements,my_bar
         )
-        image_elements, image_summaries = get_image_summaries(openai_api_key, output_path)
+        image_elements, image_summaries = get_image_summaries(openai_api_key, output_path,my_bar)
         
         documents = []
         retrieve_contents = []
@@ -169,18 +171,19 @@ def create_document_and_vectorstore(openai_api_key, pdf_path, output_path):
         raise
 
 prompt_template = """
-You are an expert in historical monuments, their architectural styles, cultural significance, and related details.
-Answer the question based only on the following context, which can include text, images, and tables:
+Answer all the question to the user based only on the following context, which can include text, images, and tables:
 {context}
 Question: {question}
+Memory: {memory}
+Always use the user's memory while giving the answer, as the user's chat history is saved. If the user asks about a previous question, give them the correct answer based on the memory.
 You will only reponse those question which answers present in context. if not in context then say "Sorry, I don't have much information about it."
 Don't answer if you are not sure and decline to answer and say "Sorry, I don't have much information about it."
-if you don't have image related to the user question then provide an empty list for image.
+You will always respond user greetings.
 Just return a helpful answer with as much detail as possible.
 Answer:
 """
 
-def get_response_from_llm(vectorstore, question, openai_api_key):
+def get_response_from_llm(vectorstore, question, openai_api_key,memory):
     logger.info("Retrieving response from LLM.")
     try:
         qa_chain = LLMChain(
@@ -198,7 +201,7 @@ def get_response_from_llm(vectorstore, question, openai_api_key):
             elif d.metadata["type"] == "image":
                 context += "[image]" + d.page_content
                 relevant_images.append(d.metadata["original_content"])
-        result = qa_chain.run({"context": context, "question": question})
+        result = qa_chain.run({"context": context, "question": question,"memory":memory})
         logger.info("Response retrieved successfully.")
         return result, relevant_images
     except Exception as e:

@@ -5,6 +5,7 @@ import logging
 import base64
 from io import BytesIO
 from PIL import Image
+import shutil
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,7 +40,16 @@ if OPENAI_API_KEY:
 
     if uploaded_pdf:
         pdf_path = os.path.join(UPLOAD_DIR, uploaded_pdf.name)
-        if "vectorstore" not in st.session_state or st.session_state.get("last_uploaded_pdf") != uploaded_pdf.name:
+        if "vectorstore" not in st.session_state:
+            st.session_state["vectorstore"] = None
+
+        if "history" not in st.session_state:
+            st.session_state["history"] = []
+
+        if "last_uploaded_pdf" not in st.session_state:
+            st.session_state["last_uploaded_pdf"] = None
+
+        if st.session_state.get("last_uploaded_pdf") != uploaded_pdf.name:
             with open(pdf_path, "wb") as f:
                 f.write(uploaded_pdf.read())
             logger.info(f"PDF saved to: {pdf_path}")
@@ -48,7 +58,11 @@ if OPENAI_API_KEY:
                 st.write(f"[{uploaded_pdf.name}]({pdf_path})")
             
             try:
-                vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, output_path)
+                my_bar = st.progress(10,text="Processing PDF. Please wait...")
+                vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, output_path,my_bar)
+                shutil.rmtree(output_path)
+
+                my_bar.progress(100, text="PDF processed successfully.")
                 st.session_state["vectorstore"] = vectorstore
                 st.session_state["last_uploaded_pdf"] = uploaded_pdf.name
                 logger.info("Vectorstore created and stored in session state.")
@@ -80,24 +94,28 @@ if OPENAI_API_KEY:
                     st.markdown(query)
         
                 with st.chat_message("assistant"):
-                    message_placeholder = st.empty()  # Placeholder for a potential loading spinner
+                    message_placeholder = st.empty()  
                     try:
-                        result, relevant_image = get_response_from_llm(vectorstore, query, OPENAI_API_KEY)
+                        result, relevant_image = get_response_from_llm(vectorstore, query, OPENAI_API_KEY,st.session_state["history"])
                         logger.info("Response generated successfully.")
                         st.markdown(result)
         
-                        images_for_message = []  # Store images for this specific assistant message
+                        images_for_message = []  
                         if relevant_image:
                             for image in relevant_image:
                                 image_data = base64.b64decode(image)
                                 pil_image = Image.open(BytesIO(image_data))
-                                st.image(pil_image)  # Display the image in the current assistant message
-                                images_for_message.append(pil_image)  # Save image for session persistence
+                                st.image(pil_image)  
+                                images_for_message.append(pil_image)  
         
-                        # Add the assistant message with its text and images to session state
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": result,
+                            "images": images_for_message
+                        })
+                        st.session_state.history.append({
+                            "user_input": query,
+                            "llm_output": result,
                             "images": images_for_message
                         })
                     except Exception as e:
