@@ -11,6 +11,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 import logging
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor , as_completed
 load_dotenv()
 
 # Set up logging
@@ -37,7 +38,12 @@ def get_raw_pdf_elements(pdf_path, output_path,my_bar):
         logger.error(f"Error while extracting PDF elements: {e}")
         raise
 
-def summarize_text(openai_api_key, raw_pdf_elements,my_bar):
+
+def summarize_single_text(element, summary_chain):
+    """Helper function to summarize a single text element."""
+    return summary_chain.run({"element_type": "text", "element": element})
+
+def summarize_text(openai_api_key, raw_pdf_elements, my_bar):
     logger.info("Starting text and table summarization.")
     my_bar.progress(40, text="Starting text and table summarization")
     text_elements = []
@@ -49,6 +55,7 @@ def summarize_text(openai_api_key, raw_pdf_elements,my_bar):
     Summarize the following {element_type}:
     {element}
     """
+    
     try:
         summary_chain = LLMChain(
             llm=ChatOpenAI(
@@ -56,23 +63,33 @@ def summarize_text(openai_api_key, raw_pdf_elements,my_bar):
             ),
             prompt=PromptTemplate.from_template(summary_prompt),
         )
-        for e in raw_pdf_elements:
-            if "CompositeElement" in repr(e):
-                logger.debug("Summarizing a text element.")
-                text_elements.append(e.text)
-                summary = summary_chain.run({"element_type": "text", "element": e})
-                text_summaries.append(summary)
 
-            elif "Table" in repr(e):
-                logger.debug("Summarizing a table element.")
-                table_elements.append(e.text)
-                summary = summary_chain.run({"element_type": "table", "element": e})
-                table_summaries.append(summary)
-        
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for e in raw_pdf_elements:
+                if "CompositeElement" in repr(e):
+                    logger.debug("Summarizing a text element.")
+                    text_elements.append(e.text)
+                    futures.append(executor.submit(summarize_single_text, e, summary_chain))
+
+                elif "Table" in repr(e):
+                    logger.debug("Summarizing a table element.")
+                    table_elements.append(e.text)
+                    futures.append(executor.submit(summarize_single_text, e, summary_chain))
+
+            # Collect results
+            for future in futures:
+                summary = future.result()  # Wait for the result
+                if summary:
+                    text_summaries.append(summary)
+
+
         logger.info("Text and table summarization completed successfully.")
     except Exception as e:
         logger.error(f"Error during text or table summarization: {e}")
         raise
+
     return text_elements, text_summaries, table_elements, table_summaries
 
 def encode_image(image_path):
@@ -84,45 +101,83 @@ def encode_image(image_path):
         logger.error(f"Error encoding image: {e}")
         raise
 
-def summarize_image(encoded_image, openai_api_key, my_bar):
-    logger.debug("Starting image summarization.")
-    my_bar.progress(60, text="Starting image summarization")
-    prompt = [
-        SystemMessage(content="You are a bot that is good at analyzing images."),
-        HumanMessage(
-            content=[
-                {"type": "text", "text": "Describe the contents of this image."},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"},
-                },
-            ]
-        ),
-    ]
-    try:
-        response = ChatOpenAI(
-            model="gpt-4-vision-preview", openai_api_key=openai_api_key, max_tokens=1024
-        ).invoke(prompt)
-        logger.info("Image summarization completed.")
-        return response.content
-    except Exception as e:
-        logger.error(f"Error during image summarization: {e}")
-        raise
+def summarize_single_image(image_path, openai_api_key, my_bar=None):
 
-def get_image_summaries(openai_api_key, output_path, my_bar):
+    try:
+        logger.info(f"Processing image: {image_path}")
+        
+        # Encode the image
+        encoded_image_ = encode_image(image_path)
+        
+        # Prepare the prompt for image summarization
+        prompt = [
+            SystemMessage(content="You are a bot that is good at analyzing images."),
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": "Describe the contents of this image in detail."},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{encoded_image_}"},
+                    },
+                ]
+            ),
+        ]
+        
+        # Use OpenAI Vision API to summarize the image
+        response = ChatOpenAI(
+            model="gpt-4-vision-preview", 
+            openai_api_key=openai_api_key, 
+            max_tokens=1024
+        ).invoke(prompt)
+        
+        logger.info(f"Successfully summarized image: {response.content}'\n")
+        return encoded_image_, response.content
+    
+    except Exception as e:
+        logger.error(f"Error summarizing image {image_path}: {e}")
+        return image_path, None
+
+def get_image_summaries(openai_api_key, output_path, my_bar=None, max_workers=3):
+
     logger.info("Gathering image summaries.")
+    
+    # Filter image files
+    image_files = [
+        os.path.join(output_path, i) 
+        for i in os.listdir(output_path) 
+        if i.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
+    
     image_elements = []
     image_summaries = []
-    for i in os.listdir(output_path):
-        if i.endswith((".png", ".jpg", ".jpeg")):
-            logger.debug(f"Processing image: {i}")
-            image_path = os.path.join(output_path, i)
-            encoded_image = encode_image(image_path)
-            image_elements.append(encoded_image)
-            summary = summarize_image(encoded_image, openai_api_key,my_bar)
-            image_summaries.append(summary)
-    logger.info("Image summaries collected successfully.")
+    
+    # Use ThreadPoolExecutor with a limited number of workers
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all image summarization tasks
+        future_to_image = {
+            executor.submit(summarize_single_image, image_path, openai_api_key, my_bar): image_path 
+            for image_path in image_files
+        }
+        
+        # Process completed tasks
+        for future in as_completed(future_to_image):
+            image_path = future_to_image[future]
+            try:
+                # Get the result of the task
+                encode_image, summary = future.result()
+
+                
+                # Only add successful summaries
+                if summary:
+                    image_elements.append(encode_image)
+                    image_summaries.append(summary)
+            
+            except Exception as e:
+                logger.error(f"Error processing future for {image_path}: {e}")
+    
+    logger.info(f"Image summaries collected: {len(image_summaries)} out of {len(image_files)}")
     return image_elements, image_summaries
+
 
 def create_document_and_vectorstore(openai_api_key, pdf_path, output_path,my_bar):
     logger.info(f"Creating document and vectorstore for PDF: {pdf_path}")
@@ -216,5 +271,3 @@ if __name__ == "__main__":
     vectorstore = create_document_and_vectorstore(openai_api_key, pdf_path, output_path)
     question = "Tell me about Taj Mahal."
     result , relevant_images= get_response_from_llm(vectorstore, question, openai_api_key)
-    print(result)
-    print(relevant_images,777777777777777777777777)
