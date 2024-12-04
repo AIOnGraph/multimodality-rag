@@ -12,28 +12,38 @@ from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 import logging
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor , as_completed
+import warnings
+import time
 load_dotenv()
+
+warnings.filterwarnings('ignore', category=RuntimeWarning, module='threading')
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def get_raw_pdf_elements(pdf_path, output_path,my_bar):
+def get_raw_pdf_elements(pdf_path, output_path, my_bar):
     logger.info(f"Extracting elements from PDF: {pdf_path}")
-    my_bar.progress(20,text="Extracting elements from PDF")
+    my_bar.progress(20, text="Extracting elements from PDF")
+    
     try:
-        raw_pdf_pages = partition_pdf(
-            filename=pdf_path,
-            extract_images_in_pdf=True,
-            infer_table_structure=True,
-            chunking_strategy="by_title",
-            max_characters=4000,
-            new_after_n_chars=3800,
-            combine_text_under_n_chars=2000,
-            image_output_dir_path=output_path,
-        )
+        with ThreadPoolExecutor(max_workers=7) as executor:
+            future = executor.submit(partition_pdf, 
+                                         filename=pdf_path,
+                                         extract_images_in_pdf=True,
+                                         infer_table_structure=True,
+                                         chunking_strategy="by_title",
+                                         max_characters=4000,
+                                         new_after_n_chars=3800,
+                                         combine_text_under_n_chars=2000,
+                                         image_output_dir_path=output_path)
+            
+            raw_pdf_pages = future.result()
+        
         logger.info("Successfully extracted elements from the PDF.")
         return raw_pdf_pages
+    
     except Exception as e:
         logger.error(f"Error while extracting PDF elements: {e}")
         raise
@@ -183,7 +193,9 @@ def create_document_and_vectorstore(openai_api_key, pdf_path, output_path,my_bar
     logger.info(f"Creating document and vectorstore for PDF: {pdf_path}")
     my_bar.progress(80, text="Creating document and vectorstore")
     try:
+        start_time = time.time()
         raw_pdf_elements = get_raw_pdf_elements(pdf_path, output_path,my_bar)
+        logger.info(f"Time taken to extract raw PDF elements: {time.time() - start_time}")
         text_elements, text_summaries, table_elements, table_summaries = summarize_text(
             openai_api_key, raw_pdf_elements,my_bar
         )

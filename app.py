@@ -12,10 +12,17 @@ import time
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-output_path = "figures/"
-UPLOAD_DIR = "uploads/"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(output_path,exist_ok=True)
+
+
+if "image_output_path" not in st.session_state:
+    st.session_state["image_output_path"] = "figures/"
+    print(st.session_state["image_output_path"])
+    os.makedirs(st.session_state["image_output_path"], exist_ok=True)
+
+if "upload_dir" not in st.session_state:
+    st.session_state["upload_dir"] =  "uploads/"
+    print(st.session_state["upload_dir"])
+    os.makedirs(st.session_state["upload_dir"],exist_ok=True)
 
 
 st.set_page_config(initial_sidebar_state='collapsed', layout='wide')
@@ -40,7 +47,7 @@ if OPENAI_API_KEY:
     uploaded_pdf = st.file_uploader("Upload a PDF", type="pdf")
 
     if uploaded_pdf:
-        pdf_path = os.path.join(UPLOAD_DIR, uploaded_pdf.name)
+        pdf_path = os.path.join(st.session_state["upload_dir"], uploaded_pdf.name)
         if "vectorstore" not in st.session_state:
             st.session_state["vectorstore"] = None
 
@@ -60,8 +67,8 @@ if OPENAI_API_KEY:
             
             try:
                 my_bar = st.progress(10,text="Processing PDF. Please wait...")
-                vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, output_path,my_bar)
-                shutil.rmtree(output_path)
+                vectorstore = create_document_and_vectorstore(OPENAI_API_KEY, pdf_path, st.session_state["image_output_path"],my_bar)
+                shutil.rmtree(st.session_state["image_output_path"])
 
                 my_bar.progress(100, text="PDF processed successfully.")
                 st.session_state["vectorstore"] = vectorstore
