@@ -243,9 +243,7 @@ Answer all the question to the user based only on the following context, which c
 Question: {question}
 Memory: {memory}
 Always use the user's memory while giving the answer, as the user's chat history is saved. If the user asks about a previous question, give them the correct answer based on the memory.
-You will only reponse those question which answers present in context. if not in context then say "Sorry, I don't have much information about it."
-Don't answer if you are not sure and decline to answer and say "Sorry, I don't have much information about it."
-You will always respond user greetings.
+You will only reponse those question which answers present in context.
 Just return a helpful answer with as much detail as possible.
 Answer:
 """
