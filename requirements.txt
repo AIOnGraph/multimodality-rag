@@ -1,8 +1,8 @@
-openai==1.55.0
-streamlit==1.40.1
-langchain==0.3.8
+openai==1.56.1
+streamlit==1.40.2
+langchain==0.3.9
 pydantic==2.9.2
-langchain-community==0.3.8
+langchain-community==0.3.9
 langchain-core==0.3.21
 faiss-cpu==1.9.0.post1
 sentence-transformers==3.3.1
