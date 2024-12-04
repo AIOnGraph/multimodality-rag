@@ -10,11 +10,10 @@ from langchain.schema.document import Document
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 import logging
-from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor , as_completed
 import warnings
 import time
-load_dotenv()
+import streamlit as st
 
 warnings.filterwarnings('ignore', category=RuntimeWarning, module='threading')
 
@@ -237,23 +236,13 @@ def create_document_and_vectorstore(openai_api_key, pdf_path, output_path,my_bar
         logger.error(f"Error creating document and vectorstore: {e}")
         raise
 
-prompt_template = """
-Answer all the question to the user based only on the following context, which can include text, images, and tables:
-{context}
-Question: {question}
-Memory: {memory}
-Always use the user's memory while giving the answer, as the user's chat history is saved. If the user asks about a previous question, give them the correct answer based on the memory.
-You will only reponse those question which answers present in context.
-Just return a helpful answer with as much detail as possible.
-Answer:
-"""
 
 def get_response_from_llm(vectorstore, question, openai_api_key,memory):
     logger.info("Retrieving response from LLM.")
     try:
         qa_chain = LLMChain(
-            llm=ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key, max_tokens=1024),
-            prompt=PromptTemplate.from_template(prompt_template),
+            llm=ChatOpenAI(model=st.secrets['model_id'], openai_api_key=openai_api_key),
+            prompt=PromptTemplate.from_template(st.secrets['prompt_template']),
         )
         relevant_docs = vectorstore.similarity_search(question)
         context = ""
