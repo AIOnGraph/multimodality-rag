@@ -134,7 +134,7 @@ def summarize_single_image(image_path, openai_api_key, my_bar=None):
         
         # Use OpenAI Vision API to summarize the image
         response = ChatOpenAI(
-            model="gpt-4-vision-preview", 
+            model="gpt-4.1-mini", 
             openai_api_key=openai_api_key, 
             max_tokens=1024
         ).invoke(prompt)
